@@ -12,9 +12,10 @@ namespace Client
 {
     public partial class GraphForm : Form
     {
-        public GraphForm()
+        public GraphForm(string title)
         {
             InitializeComponent();
+            this.Text = title;
         }
 
         public PictureBox Picture { get { return this.pictureBox1; } set { this.pictureBox1 = value; } }

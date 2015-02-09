@@ -197,7 +197,7 @@ namespace Client
             GC.Collect();
             GC.WaitForPendingFinalizers();
 
-            GraphForm graph = new GraphForm();
+            GraphForm graph = new GraphForm(_IRType);
             graph.FormClosed += graph_FormClosed;
             using (var fs = System.IO.File.Open(filePath, System.IO.FileMode.Open))
                 graph.Picture.Image = Image.FromStream(fs);
