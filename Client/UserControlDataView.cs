@@ -183,7 +183,10 @@ namespace Client
 
         private void btnDraw_Click(object sender, EventArgs e)
         {
-            SetVariableInR(_bindingTable.DTable, this.dtpLCFrom.Value, this.dtpLCTo.Value);
+
+            if (!SetVariableInR(_bindingTable.DTable, this.dtpLCFrom.Value, this.dtpLCTo.Value))
+                return;
+
             string filePath = string.Format(@"{0}\{1}.png", Application.StartupPath, _IRType);
             string saveFile = string.Format(@"ggsave(""{0}\{1}.png"")", Application.StartupPath, _IRType).Replace(@"\", @"/");
             string plotCmd = string.Format(@"ggplot(data = {0}, aes(x=Date, y=Value)) + geom_line(aes(colour=Level)) + ylab(""Value(%)"")", _IRType);
@@ -206,9 +209,7 @@ namespace Client
             this.btnDraw.Enabled = false;
         }
 
-        
-
-        private void SetVariableInR(DataTable dt, DateTime startDate, DateTime endDate)
+        private bool SetVariableInR(DataTable dt, DateTime startDate, DateTime endDate)
         {
             _rEngine.Evaluate(string.Format("{0} <- data.frame()", _IRType));
 
@@ -218,6 +219,15 @@ namespace Client
             var dates = from row in dt.Rows.Cast<DataRow>()
                          where (DateTime)row[date] >= startDate && (DateTime)row[date] <= endDate
                          select ((DateTime)row[date]).ToShortDateString();
+
+            if (dates.Count() == 0)
+            {
+                using (new CenterWinDialog(Application.OpenForms.Cast<Form>().Last()))
+                {
+                    MessageBox.Show("Data is not available on the selecte time range.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                return false;
+            }
 
             CharacterVector dateVector = _rEngine.CreateCharacterVector(dates);
             _rEngine.SetSymbol(date.ColumnName, dateVector);
@@ -241,6 +251,7 @@ namespace Client
                         break;
                 }
             }
+            return true;
         }
     }
 }
