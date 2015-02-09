@@ -183,7 +183,7 @@ namespace Client
 
         private void btnDraw_Click(object sender, EventArgs e)
         {
-            SetVariableInR(_bindingTable.DTable);
+            SetVariableInR(_bindingTable.DTable, this.dtpLCFrom.Value, this.dtpLCTo.Value);
             string filePath = string.Format(@"{0}\{1}.png", Application.StartupPath, _IRType);
             string saveFile = string.Format(@"ggsave(""{0}\{1}.png"")", Application.StartupPath, _IRType).Replace(@"\", @"/");
             string plotCmd = string.Format(@"ggplot(data = {0}, aes(x=Date, y=Value)) + geom_line(aes(colour=Level)) + ylab(""Value(%)"")", _IRType);
@@ -208,13 +208,17 @@ namespace Client
 
         
 
-        private void SetVariableInR(DataTable dt)
+        private void SetVariableInR(DataTable dt, DateTime startDate, DateTime endDate)
         {
             _rEngine.Evaluate(string.Format("{0} <- data.frame()", _IRType));
 
             DataColumn date = dt.Columns.Cast<DataColumn>().First(col => col.DataType == typeof(DateTime));
             dt.Rows.Cast<DataRow>().OrderByDescending(row => row[date]);
-            var dates = dt.Rows.Cast<DataRow>().Select(row => ((DateTime)row[date]).ToShortDateString());
+
+            var dates = from row in dt.Rows.Cast<DataRow>()
+                         where (DateTime)row[date] >= startDate && (DateTime)row[date] <= endDate
+                         select ((DateTime)row[date]).ToShortDateString();
+
             CharacterVector dateVector = _rEngine.CreateCharacterVector(dates);
             _rEngine.SetSymbol(date.ColumnName, dateVector);
             _rEngine.Evaluate(string.Format(@"{0} <- as.Date({0}, ""%m/%d/%Y"")", date.ColumnName));
@@ -225,7 +229,10 @@ namespace Client
                 switch (dc.DataType.ToString())
                 {
                     case "System.Double":
-                        var templs = dt.Rows.Cast<DataRow>().Select(row => row[dc].GetType() == typeof(DBNull) ? double.NaN : (double)row[dc]);
+                        var templs = from row in dt.Rows.Cast<DataRow>()
+                                      where (DateTime)row[date] >= startDate && (DateTime)row[date] <= endDate
+                                      select row[dc].GetType() == typeof(DBNull) ? double.NaN : (double)row[dc];
+
                         NumericVector tempvec = _rEngine.CreateNumericVector(templs);
                         _rEngine.SetSymbol(dc.ColumnName, tempvec);
                         _rEngine.Evaluate(string.Format(@"{0} <- data.frame(Date={1}, Value={2}, Level=""{3}"")", "tempDF", date.ColumnName, dc.ColumnName, dc.ColumnName));
@@ -234,17 +241,6 @@ namespace Client
                         break;
                 }
             }
-        }
-
-        [DataFrameRow]
-        private class RDataRow
-        {
-            [DataFrameColumn("date")]
-            public DateTime Date { get; set; }
-            [DataFrameColumn("value")]
-            public double Value { get; set; }
-            [DataFrameColumn("level")]
-            public double Level { get; set; }
         }
     }
 }
